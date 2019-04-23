@@ -6,6 +6,8 @@ use App\Like;
 use App\Post;
 use App\Tag;
 use Illuminate\Http\Request;
+use Auth;
+use Gate;
 
 class PostController extends Controller
 {
@@ -58,7 +60,8 @@ class PostController extends Controller
             'title' => $request->input('title'),
             'content' => $request->input('content')
         ]);
-        $post->save();
+        // $post->save();
+        Auth::user()->posts()->save($post);   
         $post->tags()->attach($request->input('tags') === null ? [] : $request->input('tags'));
 
         return redirect()->route('admin.index')->with('info', 'Post created, Title is: ' . $request->input('title'));
@@ -71,13 +74,23 @@ class PostController extends Controller
             'content' => 'required|min:10'
         ]);
         $post = Post::find($request->input('id'));
-        $post->title = $request->input('title');
-        $post->content = $request->input('content');
-        $post->save();
-//        $post->tags()->detach();
-//        $post->tags()->attach($request->input('tags') === null ? [] : $request->input('tags'));
-        $post->tags()->sync($request->input('tags') === null ? [] : $request->input('tags'));
-        return redirect()->route('admin.index')->with('info', 'Post edited, new Title is: ' . $request->input('title'));
+
+        if(Gate::denies('update-post', $post)){
+            return redirect()->back();
+        }
+        else{
+            $post->title = $request->input('title');
+            $post->content = $request->input('content');
+            //$post->save();
+//          $post->tags()->detach();
+            
+            Auth::user()->posts()->save($post);   
+//          
+            $post->tags()->attach($request->input('tags') === null ? [] : $request->input('tags'));
+            $post->tags()->sync($request->input('tags') === null ? [] : $request->input('tags'));
+            return redirect()->route('admin.index')->with('info', 'Post edited, new Title is: ' . $request->input('title'));    
+        }
+        
     }
 
     public function getAdminDelete($id)
